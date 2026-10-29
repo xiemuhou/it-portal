@@ -1,0 +1,13 @@
+{
+  "database": {
+    "engine": "mysql",
+    "host": "mysql.example.local",
+    "port": 3306,
+    "name": "itportal",
+    "username": "root",
+    "password": "",
+    "unix_socket": "",
+    "driver": "",
+    "trust_server_certificate": false
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "database": {
+    "engine": "mysql",
+    "host": "127.0.0.1",
+    "port": 3306,
+    "name": "itportal",
+    "username": "root",
+    "password": "",
+    "unix_socket": "",
+    "driver": "",
+    "trust_server_certificate": false
+  },
+  "ehr_database": {
+    "enabled": false,
+    "engine": "mssql",
+    "host": "ehr-db.example.local",
+    "port": 1433,
+    "name": "EHR_DATABASE",
+    "username": "",
+    "password": "",
+    "driver": "ODBC Driver 17 for SQL Server",
+    "trust_server_certificate": false
+  },
+  "ehr_org_code": "ORG_ROOT",
+  "timezone": "Asia/Shanghai",
+  "data_dir": "/opt/it-portal/data/business",
+  "ldap": {
+    "enabled": false,
+    "host": "ad.example.local",
+    "port": 636,
+    "use_ssl": true,
+    "start_tls": false,
+    "validate_certificate": true,
+    "authentication": "SIMPLE",
+    "bind_dn": "svc-ldap@example.local",
+    "password": "",
+    "base_dn": "DC=example,DC=local",
+    "user_filter": "(&(objectCategory=person)(objectClass=user))",
+    "page_size": 500,
+    "connect_timeout_seconds": 10,
+    "receive_timeout_seconds": 30,
+    "schedule_enabled": false,
+    "schedule_hour": 1,
+    "default_department": "",
+    "attributes": {
+      "stable_id": "objectGUID",
+      "login_name": "sAMAccountName",
+      "display_name": "displayName",
+      "employee_no": "employeeID",
+      "department": "department",
+      "job_title": "title",
+      "email": "mail",
+      "phone": "telephoneNumber",
+      "account_control": "userAccountControl"
+    }
+  },
+  "monitor_url": "https://monitor.example.com/",
+  "log_retention_days": 90,
+  "audit_retention_days": 180,
+  "notification_retention_days": 180,
+  "secure_cookie": false
+}

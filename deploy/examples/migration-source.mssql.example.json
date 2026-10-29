@@ -1,0 +1,12 @@
+{
+  "database": {
+    "engine": "mssql",
+    "host": "sqlserver.example.local",
+    "port": 1433,
+    "name": "itPortal",
+    "username": "itportal_migration_reader",
+    "password": "",
+    "driver": "ODBC Driver 18 for SQL Server",
+    "trust_server_certificate": false
+  }
+}

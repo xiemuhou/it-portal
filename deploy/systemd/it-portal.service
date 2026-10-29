@@ -1,0 +1,47 @@
+[Unit]
+Description=IT Service and Operations Portal
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/it-portal
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=IT_PORTAL_CONFIG_FILE=/opt/it-portal/business.local.json
+
+# A new empty MySQL database is initialized automatically. On later restarts,
+# Alembic only applies migration versions that have not yet run.
+ExecStartPre=/usr/bin/mkdir -p /opt/it-portal/data/business
+ExecStartPre=/opt/it-portal/.venv/bin/python -m alembic upgrade head
+ExecStartPre=/opt/it-portal/.venv/bin/python -m portal.manage init-admin
+ExecStart=/opt/it-portal/.venv/bin/python -m portal --host 0.0.0.0 --port 8089
+
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=120s
+TimeoutStopSec=30s
+KillSignal=SIGINT
+UMask=0077
+LimitNOFILE=65536
+
+# The service intentionally runs as Linux root at the administrator's request.
+# Keep the remaining systemd isolation so the process can only write its project
+# directory and private temporary directory.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=/opt/it-portal
+
+[Install]
+WantedBy=multi-user.target

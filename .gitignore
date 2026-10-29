@@ -1,0 +1,55 @@
+# Python environments and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Local configuration and credentials
+business.local.json
+business.local.*.json
+config.local.json
+migration-source.json
+migration-target.json
+migration-manifest*.json
+.env
+.env.*
+*.key
+*.secret
+*.pem
+*.pfx
+*.p12
+
+# Runtime data, uploaded business files and generated reports
+data/
+.tmp/
+*.log
+*.jsonl
+
+# Databases, backups and generated import/export files
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.bak
+*.trn
+*.zip
+*.7z
+*.xlsx
+*.xls
+*.csv
+
+# Generated binary documentation; Markdown is the source of truth
+docs/*.docx
+
+# Editors and operating-system metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
