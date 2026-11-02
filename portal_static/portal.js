@@ -16,7 +16,7 @@ const can=p=>!!state.user?.grants?.[p]?.length;
 const tag=v=>`<span class="tag ${esc(v)}">${esc(names[v]||v||'—')}</span>`;
 const organizationSource=value=>value==='ehr'?'EHR同步':value==='ldap'?'LDAP同步':'手工维护';
 let modalHandler=null,modalContext=null,currentTicket=null,renderToken=0;
-let aiMessages=[];
+let aiMessages=[],aiProgressTimer=null,aiProgressText='';
 
 function fuzzyMatch(label,query){
   const text=label.toLocaleLowerCase(),terms=query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
@@ -172,15 +172,29 @@ async function home(){
     `,'服务概览');
 }
 async function newTicket(){
-  const aiStatus=await api('/api/ai/status');aiMessages=[];
-  const assistant=aiStatus.enabled?`<section class="panel ai-panel"><div class="ai-panel-head"><div><h2><span class="ai-mark">✦</span> 问问 IT AI</h2><p class="muted">提交前先让 AI 帮你排查。</p></div><button class="quiet small" data-action="ai-use-description">使用问题描述</button></div><div id="ai-messages" class="ai-messages" aria-live="polite"><div class="ai-message assistant">你好，我可以先帮你分析问题。请描述现象、报错信息和已经尝试过的操作。</div></div><form id="ai-chat-form" class="ai-chat-form"><textarea name="message" required maxlength="4000" rows="3" placeholder="输入问题，请勿填写密码、验证码或访问令牌…"></textarea><button class="primary" type="submit">发送</button></form><p class="ai-disclosure">对话和命中的已发布知识片段会发送到管理员配置的 AI 服务；聊天内容不会保存到门户数据库。AI 建议仅供排查参考。</p><div id="ai-recommendations"></div></section>`:`<section class="panel"><h2>自助解决</h2><div class="callout">AI 助手尚未启用，你可以先查阅知识库或直接提交工单。</div><a class="button" href="#knowledge" target="_blank" rel="noopener">打开知识库 →</a><button class="quiet" data-action="recommend">根据描述查找手册</button><div id="recommendations"></div></section>`;
+  const aiStatus=await api('/api/ai/status');stopAiProgress();aiMessages=[];
+  const assistant=aiStatus.enabled?`<section class="panel ai-panel"><div class="ai-panel-head"><div><h2><span class="ai-mark">✦</span> 问问 IT AI</h2><p class="muted">提交前先让 AI 帮你排查。</p></div><button class="quiet small" data-action="ai-use-description">使用问题描述</button></div><div id="ai-messages" class="ai-messages" aria-live="polite"><div class="ai-message assistant">你好，我可以先帮你分析问题。请描述现象、报错信息和已经尝试过的操作。</div></div><form id="ai-chat-form" class="ai-chat-form"><textarea name="message" required maxlength="4000" rows="3" placeholder="输入问题；回车发送，Shift+Enter 换行。请勿填写密码、验证码或访问令牌…"></textarea><button class="primary" type="submit">发送</button></form><p class="ai-input-help">回车发送 · Shift+Enter 换行</p><p class="ai-disclosure">对话和命中的已发布知识片段会发送到管理员配置的 AI 服务；聊天内容不会保存到门户数据库。AI 建议仅供排查参考。</p><div id="ai-recommendations"></div></section>`:`<section class="panel"><h2>自助解决</h2><div class="callout">AI 助手尚未启用，你可以先查阅知识库或直接提交工单。</div><a class="button" href="#knowledge" target="_blank" rel="noopener">打开知识库 →</a><button class="quiet" data-action="recommend">根据描述查找手册</button><div id="recommendations"></div></section>`;
   setPage(head('提交服务工单','说说遇到的情况，我们一起解决。')+`<div class="ticket-grid"><section class="panel"><form id="new-ticket-form"><div id="ticket-error"></div>${field('问题描述','<textarea name="description" required rows="9" maxlength="20000" placeholder="请描述问题现象、发生位置或错误提示…"></textarea>',true)}<div class="form-grid">${field('发生区域',select('site_id',state.lookup.sites||[]))}${field('具体位置',input('location_text'))}${field('联系方式',input('contact',state.user.phone||''))}${field('截图或附件','<input type="file" name="files" multiple accept=".png,.jpg,.jpeg,.pdf">',false,'PNG、JPG、PDF，单个不超过 20 MB，最多 5 个。')}</div><div class="form-footer"><button class="primary" type="submit">提交工单 →</button></div></form></section><aside>${assistant}<div class="callout">AI 没有解决问题时可直接提交。IT 接单后开始处理，你可以在工单中补充信息和留言。</div></aside></div>`,'提交工单');
 }
 
 function renderAiConversation(recommendations=[],meta=null){
   const box=$('#ai-messages');if(!box)return;
-  box.innerHTML=`<div class="ai-message assistant">你好，我可以先帮你分析问题。请描述现象、报错信息和已经尝试过的操作。</div>`+aiMessages.map(message=>`<div class="ai-message ${message.role}">${esc(message.content)}</div>`).join('');box.scrollTop=box.scrollHeight;
+  const progress=aiProgressText?`<div class="ai-message assistant ai-message-progress" role="status"><span class="ai-thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>${esc(aiProgressText)}</span></div>`:'';
+  box.innerHTML=`<div class="ai-message assistant">你好，我可以先帮你分析问题。请描述现象、报错信息和已经尝试过的操作。</div>`+aiMessages.map(message=>`<div class="ai-message ${message.role}">${esc(message.content)}</div>`).join('')+progress;box.setAttribute('aria-busy',aiProgressText?'true':'false');box.scrollTop=box.scrollHeight;
   const refs=$('#ai-recommendations');if(refs){const basis=meta?`<div class="ai-answer-meta"><span class="tag ${meta.basis==='knowledge_base'?'published':'pending'}">${meta.basis==='knowledge_base'?'依据知识库':meta.basis==='general'?'通用排查建议':'未找到知识依据'}</span>${meta.need_ticket?'<button class="small" data-action="ai-fill-ticket">将问题带入工单</button>':''}</div>`:'';const links=recommendations.length?`<div class="ai-references"><strong>相关操作手册</strong>${recommendations.map(item=>`<a href="${esc(item.reader_url)}" target="_blank" rel="noopener">${esc(item.title)} →</a>`).join('')}</div>`:'';refs.innerHTML=basis+links;}
+}
+
+function stopAiProgress(){
+  if(aiProgressTimer){clearTimeout(aiProgressTimer);aiProgressTimer=null;}
+  aiProgressText='';
+}
+
+function startAiProgress(){
+  stopAiProgress();
+  const steps=[['正在查找相关知识…',1800],['正在分析问题…',5000],['AI 正在组织答案…',null]];
+  let index=0;
+  const advance=()=>{aiProgressText=steps[index][0];renderAiConversation();const delay=steps[index][1];if(delay&&index<steps.length-1)aiProgressTimer=setTimeout(()=>{index++;advance();},delay);};
+  advance();
 }
 
 async function aiSettingsPage(){
@@ -529,8 +543,8 @@ document.addEventListener('submit',async event=>{
     else if(form.id==='memo-filter'){const fd=new FormData(form);memoFilters={q:fd.get('q')||'',category:fd.get('category')||''};state.page=1;await memoPage();}
     else if(form.id==='ai-chat-form'){
       const message=form.elements.message.value.trim();if(!message)throw Error('请输入要咨询的问题');
-      aiMessages=[...aiMessages.slice(-10),{role:'user',content:message}];renderAiConversation();form.reset();
-      const result=await api('/api/ai/chat',{method:'POST',body:{messages:aiMessages}});aiMessages.push({role:'assistant',content:result.answer});renderAiConversation(result.recommendations||[],result);
+      aiMessages=[...aiMessages.slice(-10),{role:'user',content:message}];form.reset();startAiProgress();
+      const result=await api('/api/ai/chat',{method:'POST',body:{messages:aiMessages}});stopAiProgress();aiMessages.push({role:'assistant',content:result.answer});renderAiConversation(result.recommendations||[],result);
     }
     else if(form.id==='ai-settings-form'){
       const fd=new FormData(form),body={enabled:fd.has('enabled'),endpoint_url:fd.get('endpoint_url'),model_name:fd.get('model_name'),clear_api_key:fd.has('clear_api_key'),timeout_seconds:Number(fd.get('timeout_seconds')),max_results:Number(fd.get('max_results')),answer_mode:fd.get('answer_mode'),no_match_action:fd.get('no_match_action'),system_prompt:fd.get('system_prompt'),version:Number(form.dataset.version)};
@@ -549,10 +563,15 @@ document.addEventListener('submit',async event=>{
   }catch(error){
     if(form.id==='modal-form'){$('.modal-error').innerHTML=`<div class="error">${esc(error.message)}</div>`;}
     else if(form.id==='new-ticket-form')$('#ticket-error').innerHTML=`<div class="error">${esc(error.message)}</div>`;
-    else if(form.id==='ai-chat-form'){aiMessages.push({role:'assistant',content:error.message});renderAiConversation();}
+    else if(form.id==='ai-chat-form'){stopAiProgress();aiMessages.push({role:'assistant',content:error.message});renderAiConversation();}
     else if(form.id==='ai-settings-form')$('#ai-settings-error').innerHTML=`<div class="error">${esc(error.message)}</div>`;
     else toast(error.message);
   }finally{if(button)button.disabled=false;}
+});
+document.addEventListener('keydown',event=>{
+  if(!event.target.matches('#ai-chat-form textarea[name="message"]')||event.key!=='Enter'||event.shiftKey||event.isComposing||event.keyCode===229)return;
+  event.preventDefault();const form=event.target.form,button=form?.querySelector('button[type="submit"]');
+  if(form&&!button?.disabled)form.requestSubmit();
 });
 document.addEventListener('click',async event=>{
   const el=event.target.closest('[data-action]');if(!el||el.disabled)return;const action=el.dataset.action,key=el.dataset.id;
